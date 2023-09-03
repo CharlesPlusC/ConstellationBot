@@ -1,0 +1,380 @@
+import os
+import time
+from matplotlib.colors import Normalize
+from matplotlib import cm
+import matplotlib.pyplot as plt
+import multiprocessing as mp
+from PIL import Image
+import numpy as np
+import cartopy.crs as ccrs
+import matplotlib as mpl
+from source.tools.constellation_tools import pull_constellation_TLEs
+from source.tools.conversions import sphere_coords, TLE_time, ecef2latlong, eci2ecef_astropy
+from source.tools.propagator import sgp4_prop_TLE
+from source.visualisation_maker.constellation_info import fetch_sat_info, pos_vel_from_statevecs
+
+cwd = os.getcwd()
+
+constellations = ['oneweb', 'starlink', 'planet', 'swarm', 'spire', 'iridium']
+animation_folder_path = cwd + '/images/constellation_anim'
+
+# loop through each constellation and create a path for the constellation file and the image folder
+def generate_state_gif(const):
+    # fetch data and return the data to be plotted
+    gif_folder = os.path.join('images/constellation_anim/gifs/', const)
+    images_folder = os.path.join('images/constellation_anim/gif_frames/', const)
+    os.makedirs(images_folder, exist_ok=True)
+    os.makedirs(gif_folder, exist_ok=True)
+    constellation_paths, constellation_img_paths = fetch_sat_info(const=const, format="statevecs", anim='latest_state')
+
+    earth_radius = 6378.137
+    plotsize = (8, 8)
+
+    eci_pos, eci_vel, alts = pos_vel_from_statevecs(constellation_paths)
+
+    cmap = cm.get_cmap('jet')
+    norm = Normalize(vmin=min(alts), vmax=max(alts))
+    scalar_map = cm.ScalarMappable(norm=norm, cmap=cmap)
+
+    view_elev = 0
+    
+    for i in range(0, 356, 5): #not 360 since this is the same as 0
+        fig = plt.figure(figsize=plotsize)
+        ax = fig.add_subplot(111, projection="3d")
+        ax.set_facecolor('xkcd:steel grey')
+        ax.xaxis.pane.set_facecolor('xkcd:steel grey')
+        ax.yaxis.pane.set_facecolor('xkcd:steel grey')
+        ax.zaxis.pane.set_facecolor('xkcd:steel grey')
+
+        # snip the white space around the figure
+        fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
+        ax.elev = view_elev
+        ax.azim = i
+
+        earth_x, earth_y, earth_z, = sphere_coords(earth_radius, granularity=50)
+
+        colors = scalar_map.to_rgba(alts)
+        ax.scatter(*np.array(eci_pos).T, c=colors, s=2)
+        # ax.plot_surface(earth_x, earth_y, earth_z, color='xkcd:light grey', alpha=0.4) #plot the Earth-radius sphere
+        ax.plot_wireframe(earth_x, earth_y, earth_z, color='xkcd:grey', alpha=0.4) #plot the Earth-radius sphere
+        fig.colorbar(scalar_map, ax=ax, shrink=0.5, aspect=10, label='Altitude (km)')
+
+        ax.set_xlabel('X-eci (km)', fontsize=10, color='black')
+        ax.set_ylabel('Y-eci (km)', fontsize=10, color='black')
+        ax.set_zlabel('Z-eci (km)', fontsize=10, color='black')
+        ax.set_xticklabels([])
+        ax.set_yticklabels([])
+        ax.set_zticklabels([])
+        ax.set_box_aspect([1, 1, 1])
+        # set the zaxis labels to go from -8000 to 8000 in steps of 2000
+        ax.set_zticks(np.arange(-8000, 8001, 2000))
+        ax.set_yticks(np.arange(-8000, 8001, 2000))
+        ax.set_xticks(np.arange(-8000, 8001, 2000))
+
+        ax.set_zticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
+        ax.set_yticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
+        ax.set_xticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
+
+        # Set the background color of the plot
+        fig.patch.set_facecolor('xkcd:steel grey')
+
+        fig.suptitle('Latest Positions:' +const +'\n Date: ' + str(time.strftime("%y/%m/%d")) +", "+ str(len(eci_pos))+'satellites:', fontsize=16, y=0.95, x=0.5, color='black')
+        plt.savefig(os.path.join(images_folder, f'{const}_{i}.png'), dpi=200, pad_inches=0.1)
+        plt.close(fig)
+
+    print(f"Combining frames into gif for {const}...")
+    gif_folder = os.path.join('images/constellation_anim/gifs/', const)
+    os.makedirs(gif_folder, exist_ok=True)
+
+    print("images folder:", images_folder)
+
+    images = sorted([img for img in os.listdir(images_folder) if img.endswith(".png")], key=lambda x: int(x.split('_')[-1].split('.')[0]))
+    print("images:", images)
+    image_list = [Image.open(os.path.join(images_folder, img)) for img in images]
+    print("image_list:", image_list)
+    gif_folder = os.path.join('images/constellation_anim/gifs/', const)
+    os.makedirs(gif_folder, exist_ok=True)
+    image_list[0].save(os.path.join(gif_folder, f'{const}_{time.strftime("%y_%m_%d")}_anim.gif'), save_all=True, append_images=image_list[1:], duration=115, loop=0)
+
+    print(f"Finished creating .gif file for {const}")
+
+    print(f"Deleting frames for {const}...")
+    for img in images:
+        os.remove(os.path.join(images_folder, img))
+
+def plot_satellite_data(ax, const_ephemerides, norm_alts_all, random_seed=42):
+    # Set the random seed to ensure reproducible results
+    np.random.seed(random_seed)
+
+    # Calculate the length of each ephemeris and create a list of random numbers
+    len_ephem = [len(ephem) for ephem in const_ephemerides]
+    rand_list = [np.random.randint(0, len_ephem[i]) for i in range(len(len_ephem))]
+
+    index = 0
+    for sat_idx, sat in enumerate(const_ephemerides):
+        ephems = np.array([ephem[1] for ephem in sat])
+        num_satellites = len(ephems)
+        rand = rand_list[sat_idx]  # Use sat_idx instead of index
+
+        # Plot the first point of each ephemeris
+        ax.scatter(
+            ephems[rand][0],
+            ephems[rand][1],
+            ephems[rand][2],
+            color="xkcd:black",
+            alpha=0.8,
+            marker="o",
+            s=0.5
+        )
+
+        for i in range(len(ephems) - 1):
+            x_values, y_values, z_values = ephems[i:i + 2].T
+
+            # Plot the line without markers
+            ax.plot(
+                x_values,
+                y_values,
+                z_values,
+                color=cm.jet(norm_alts_all[index + i]),
+                linewidth=0.15,
+                alpha=0.4
+            )
+
+        index += num_satellites
+
+    return
+
+def process_geom_data(const):
+    # fetch data and return the data to be plotted
+    constellation_path, constellation_img_paths = fetch_sat_info(const, format="TLE", anim="current_geometry")
+
+    # Add a check for whether a gif already exists
+    gif_folder = os.path.join('images/constellation_anim/gifs/', const)
+    gif_file = os.path.join(gif_folder, f'geom_{const}_{time.strftime("%y_%m_%d")}.gif')
+    if os.path.exists(gif_file):
+        print(f"Gif file for {const} already exists. Skipping...")
+        pass
+
+    const_ephemerides = []
+    individual_TLEs = []
+    with open(constellation_path, 'r') as f:
+        for line in f:
+            individual_TLEs.append(line.strip())
+            if len(individual_TLEs) == 2:
+                tle_string = '\n'.join(individual_TLEs)
+                TLE_jd = TLE_time(tle_string)
+                TLE_jd_plusdt = TLE_jd + 120/1440
+                const_ephemerides.append(sgp4_prop_TLE(TLE=tle_string, jd_start=TLE_jd, jd_end=TLE_jd_plusdt, dt=120, alt_series=False))
+                individual_TLEs = []
+    print(f"Returning {len(const_ephemerides)} const_ephemerides and {len(constellation_img_paths)} constellation_img_paths")
+    return const_ephemerides, constellation_img_paths
+
+def create_geom_frame(az, const_ephemerides, constellation_img_paths, const, elev=0):
+    print(f"Inside geom frame {az} for {const}...")
+    print(f"Creating frame for {constellation_img_paths + str(az) + '.png'}...")
+    fig = plt.figure(figsize=(6, 6), facecolor='xkcd:steel grey') 
+
+    # First subplot
+    ax1 = fig.add_subplot(111, projection='3d', auto_add_to_figure=False)
+    fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
+    fig.add_axes(ax1)
+    ax1.elev = elev
+    ax1.azim = az
+    ax1.set_box_aspect([1, 1, 1])
+    ax1.set_zticks(np.arange(-8000, 8001, 2000))
+    ax1.set_yticks(np.arange(-8000, 8001, 2000))
+    ax1.set_xticks(np.arange(-8000, 8001, 2000))
+
+    ax1.set_zticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
+    ax1.set_yticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
+    ax1.set_xticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
+
+    # Label axes
+    ax1.set_xlabel('X-eci (km)', fontsize=10, color='black')
+    ax1.set_ylabel('Y-eci (km)', fontsize=10, color='black')
+    ax1.set_zlabel('Z-eci (km)', fontsize=10, color='black')
+
+    ax1.set_facecolor('xkcd:steel grey')
+    ax1.xaxis.pane.set_facecolor('xkcd:steel grey')
+    ax1.yaxis.pane.set_facecolor('xkcd:steel grey')
+    ax1.zaxis.pane.set_facecolor('xkcd:steel grey')
+
+    alts_all = []
+    for sat in const_ephemerides:
+        ephems = np.array([ephem[1] for ephem in sat])
+        alts_sat = np.linalg.norm(ephems, axis=1) - 6378.137
+        alts_all.extend(alts_sat)
+
+    min_alt_all = np.min(alts_all)
+    max_alt_all = np.max(alts_all)
+    norm_alts_all = (alts_all - min_alt_all) / (max_alt_all - min_alt_all)
+
+    
+    plot_satellite_data(ax1, const_ephemerides, norm_alts_all=norm_alts_all)
+
+    cb_ax = fig.add_axes([0.85, 0.3, 0.03, 0.4]) # [left, bottom, width, height]
+    sm = plt.cm.ScalarMappable(cmap=cm.jet, norm=plt.Normalize(vmin=min_alt_all, vmax=max_alt_all))
+    sm._A = []
+    cbar = fig.colorbar(sm, cax=cb_ax)
+    cbar.set_label('Altitude (km)', fontsize=12, color='black', labelpad=5)
+    cbar.ax.tick_params(labelsize=9, color='black')
+
+    fig.subplots_adjust(right=0.8)  # Adjust space to the right of the subplots
+    print(f"Saving frame for {const} at azimuth {az} at location {constellation_img_paths + str(az) + '.png'}")
+    fig.suptitle('Orbital Configuration:' +const +'\n Date:' + str(time.strftime("%y/%m/%d")) + ', ' + str(len(const_ephemerides))+' satellites', fontsize=16, y=0.95, x=0.5, color='black')
+    # Save the figure
+    fig.savefig(constellation_img_paths + str(az) + '.png', dpi=200, pad_inches=0.1)
+    print(f"Saved frame for {const} at azimuth {az} at location {constellation_img_paths + str(az) + '.png'}")
+
+    plt.close()
+
+def create_frame(args):
+    az, const, const_ephemerides, constellation_img_paths = args
+    print(f"Creating frame for {const} at azimuth {az}...")
+    create_geom_frame(az, const_ephemerides, constellation_img_paths, const)
+
+def generate_geom_gif(const):
+    const_ephemerides, constellation_img_paths = process_geom_data(const)
+
+    max_workers = 4 # github actions max workers is 5?
+
+    gif_folder = os.path.join('images/constellation_anim/gifs/', const)
+    images_folder = os.path.join('images/constellation_anim/current_geometry/', const)
+    os.makedirs(gif_folder, exist_ok=True)
+
+    with mp.Pool(processes=max_workers) as pool:
+        pool.map(create_frame, [(az, const, const_ephemerides, constellation_img_paths) for az in range(0, 365, 5)])
+
+    print(f"Combining frames into gif for {const}...")
+
+    images = sorted([img for img in os.listdir(images_folder) if img.endswith(".png")], key=lambda x: int(x.split('_')[-1].split('.')[0]))
+    with Image.open(os.path.join(images_folder, images[0])) as first_image:
+        image_list = [Image.open(os.path.join(images_folder, img)) for img in images[1:]]
+        first_image.save(os.path.join(gif_folder, f'geom_{const}_{time.strftime("%y_%m_%d")}.gif'), save_all=True, append_images=image_list, duration=110, loop=0)
+
+    print(f"Finished creating .gif file for {const}")
+
+    print(f"Deleting frames for {const}...")
+    for img in images:
+        os.remove(os.path.join(images_folder, img))
+
+def process_gtracks_data(const):
+    # fetch data and return the data to be plotted
+    cwd = os.getcwd()
+    animation_folder_path = cwd + '/images/constellation_anim/'
+    const_statevec_paths = {}
+    imgs_paths = {}
+  
+    const_statevec_paths = animation_folder_path + "TLEs/" + const + '_const_latest.txt'
+    imgs_paths = animation_folder_path + 'ground_tracks/' + const + '/'
+
+    os.makedirs(os.path.dirname(const_statevec_paths), exist_ok=True)
+    os.makedirs(os.path.dirname(imgs_paths), exist_ok=True)
+
+    constellation_paths = const_statevec_paths
+    constellation_img_paths = imgs_paths
+
+    if not os.path.exists(constellation_paths) or os.path.getmtime(constellation_paths) < (time.time() - 86400):
+        print("TLE data is older than 24 hours or not found.")
+        print("fetching latest TLE data for:", const)
+        pull_constellation_TLEs(tle_txt=constellation_paths, constellation=const)
+    else:
+        print("TLE data is less than 24 hours old.")
+        print("using existing TLE data for:", const)
+
+    # Add a check for whether a plot already exists
+    gif_folder = os.path.join('images/constellation_anim/gifs/', const)
+    gif_file = os.path.join(gif_folder, f'gtrax_{const}_{time.strftime("%y_%m_%d")}.png')
+    if os.path.exists(gif_file):
+        print(f"g-tracks plot for {const} already exists. Skipping...")
+        return gif_file
+
+    const_ephemerides = []
+    individual_TLEs = []
+    with open(constellation_paths, 'r') as f:
+        for line in f:
+            individual_TLEs.append(line.strip())
+            if len(individual_TLEs) == 2:
+                tle_string = '\n'.join(individual_TLEs)
+                TLE_jd = TLE_time(tle_string)
+                TLE_jd_plusdt = TLE_jd + 100/1440 # propagate for 100 minutes
+                stepsize = 45 # propagate every 20 seconds
+                const_ephemerides.append(sgp4_prop_TLE(TLE=tle_string, jd_start=TLE_jd, jd_end=TLE_jd_plusdt, dt=stepsize, alt_series=False))
+                individual_TLEs = []
+        
+    return const_ephemerides, constellation_img_paths
+
+def plot_ground_tracks(const):
+    const_ephemerides, constellation_img_paths = process_gtracks_data(const)
+
+    fig = plt.figure(figsize=(6, 6))
+    ax = fig.add_subplot(111, projection=ccrs.PlateCarree())
+    ax.coastlines(resolution='50m', color='black', linewidth=0.5) 
+    fig.patch.set_facecolor('xkcd:steel grey') 
+    ax.spines['geo'].set_visible(False)
+    ax.spines['geo'].set_edgecolor('black')
+    ax.set_facecolor('xkcd:steel grey')
+    ax.gridlines(draw_labels=True, linestyle='--', color='black', alpha=0.5) 
+
+    all_lats = []
+    all_lons = []
+    all_alts = []
+    for sat in const_ephemerides:
+        julian_day = sat[0][0] # just get the first MJD
+        modified_julian_day = julian_day - 2400000.5
+        pos = np.array([ephem[1] for ephem in sat])
+        vel = np.array([ephem[2] for ephem in sat])
+
+        # Convert ECI coordinates to ECEF coordinates
+        pos, vel = eci2ecef_astropy(pos.T, vel.T, modified_julian_day)
+        pos = pos.T
+        vel = vel.T
+
+        # Convert ECEF coordinates to lat/lon/alt
+        pos_x, pos_y, pos_z = pos.T
+        lats, lons, alts = ecef2latlong(pos_x, pos_y, pos_z)
+
+        all_lats.append(lats)
+        all_lons.append(lons)
+        all_alts.append(alts)
+
+    lats = np.concatenate(all_lats)
+    lons = np.concatenate(all_lons)
+    alts = np.concatenate(all_alts)
+
+    max_alt = np.max(alts)
+    min_alt = np.min(alts)
+    norm = mpl.colors.Normalize(vmin=min_alt, vmax=max_alt)
+    sm = plt.cm.ScalarMappable(cmap='Spectral', norm=norm)
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=ax, orientation='horizontal', pad=0.05, shrink=0.8)
+    cbar.set_label('Altitude (km)', fontsize=10, color='white')
+    cbar.ax.tick_params(labelsize=10, color='white')
+    # set the colorbar tick labels to white
+    cbar.ax.tick_params(axis='x', colors='white')
+    cbar.ax.tick_params(axis='y', colors='white')
+
+    #scatter lats and lons and use the color map above to color the points
+    ax.scatter(lons, lats, c=alts, cmap='Spectral', s=0.4, transform=ccrs.PlateCarree(), alpha = 0.2)
+    #set all plot text to white
+    ax.tick_params(axis='x', colors='white')
+    ax.tick_params(axis='y', colors='white')
+    ax.xaxis.label.set_color('white')
+    ax.yaxis.label.set_color('white')
+    ax.title.set_color('white')
+
+    num_satellites = len(const_ephemerides)
+    ax.set_title(f'Ground tracks: {const} constellation - {time.strftime("%y/%m/%d")}', fontsize=10, color='white') 
+    #add a little box to go around the text
+    ax.text(0.68, 0.025, f'{num_satellites} active satellites', transform=ax.transAxes, fontsize=10, color='black', bbox=dict(facecolor='white', edgecolor='white', pad=1.0, alpha=0.5))
+
+    os.makedirs(os.path.dirname(constellation_img_paths), exist_ok=True)
+    img_file = os.path.join(constellation_img_paths, f'gtrax_{const}_{time.strftime("%y_%m_%d")}.png')
+    print("saving image to:", img_file)
+    plt.savefig(img_file, dpi=400, bbox_inches='tight')
+    plt.close()
+
+if __name__ == "__main__":
+    const = 'swarm'
+    print("Generating geometry gif for:", const)
+    generate_geom_gif(const)
