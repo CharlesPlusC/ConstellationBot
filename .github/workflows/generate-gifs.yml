@@ -27,6 +27,7 @@ jobs:
 
         # Create environment
         conda env create -f config/constellationbot_env.yml
+        conda info --envs
 
     - name: Generate GIFs
       run: |
