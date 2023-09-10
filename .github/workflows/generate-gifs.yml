@@ -4,7 +4,7 @@ on:
   schedule:
     # This runs every day at 7AM UTC.
     - cron: '0 7 * * *'       
-  workflow_dispatch:     
+  workflow_dispatch:
 
 jobs:
   build:
@@ -13,26 +13,24 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Setup environment
+    - name: Install and Setup Conda
       run: |
-        # Install Miniconda if not available
-        if ! command -v conda &> /dev/null
-        then
-            echo "Conda not found, installing..."
-            wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-            bash miniconda.sh -b -p $HOME/miniconda
-            export PATH="$HOME/miniconda/bin:$PATH"
-            conda config --set always_yes yes --set changeps1 no
-            conda update -q conda
-        fi
-    
-        conda init bash
-    
+        # Install Miniconda
+        echo "Installing Miniconda..."
+        wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
+        bash miniconda.sh -b -p $HOME/miniconda
+        echo "$HOME/miniconda/bin" >> $GITHUB_PATH
+
+        # Initialize Conda for bash shell
+        conda config --set always_yes yes --set changeps1 no
+        conda update -q conda
+
+        # Create environment
         conda env create -f config/constellationbot_env.yml
-        source activate constellationbot
 
     - name: Generate GIFs
       run: |
+        source $HOME/miniconda/bin/activate constellationbot
         python -m source.visualisation_maker.constellation_gifs 
 
     - name: Upload GIFs as artifact
