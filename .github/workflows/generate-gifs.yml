@@ -33,7 +33,7 @@ jobs:
     - name: Generate GIFs
       run: |
         source $HOME/miniconda/etc/profile.d/conda.sh
-        conda activate /usr/share/miniconda/envs/constellationbot
+        conda activate constellationbot
         python -m source.visualisation_maker.constellation_gifs 
 
     - name: Upload GIFs as artifact
