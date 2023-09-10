@@ -3,7 +3,8 @@ name: Generate GIFs
 on:
   schedule:
     # This runs every day at 7AM UTC.
-    - cron: '0 7 * * *'
+    - cron: '0 7 * * *'       
+  workflow_dispatch:     
 
 jobs:
   build:
