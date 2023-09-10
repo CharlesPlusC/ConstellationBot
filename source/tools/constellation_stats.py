@@ -238,12 +238,12 @@ def populate_json(total_satellites, altitude_counts, inclination_counts,constell
         json.dump(data, file, indent=2)
 
 
-def load_json_data(json_file="source/twitterbot/info_JSON/constellation_history.json"):
+def load_json_data(json_file="config/info_JSON/constellation_history.json"):
     """
     Load JSON data from the specified file.
     
     Args:
-        json_file (str): The path of the JSON file. Defaults to "source/twitterbot/info_JSON/constellation_history.json".
+        json_file (str): The path of the JSON file. Defaults to "config/info_JSON/constellation_history.json".
 
     Returns:
         dict: Loaded JSON data.
@@ -346,13 +346,13 @@ def calculate_date_difference(last_record, second_last_record):
     second_last_date = datetime.fromisoformat(second_last_record["timestamp"])
     return (last_date - second_last_date).days
 
-def constellation_difference(constellation_name, json_file="source/twitterbot/info_JSON/constellation_history.json"):
+def constellation_difference(constellation_name, json_file="config/info_JSON/constellation_history.json"):
     """
     Calculate the differences in altitude, inclination, total satellites, and date for a given constellation.
 
     Args:
         constellation_name (str): The name of the constellation.
-        json_file (str): The path of the JSON file. Defaults to "source/twitterbot/info_JSON/constellation_history.json".
+        json_file (str): The path of the JSON file. Defaults to "config/info_JSON/constellation_history.json".
 
     Returns:
         tuple: A tuple containing the differences in altitude counts, inclination counts, total satellites, and date (in days).
@@ -367,13 +367,13 @@ def constellation_difference(constellation_name, json_file="source/twitterbot/in
 
     return alt_diff, inc_diff, total_sat_diff, date_diff
 
-def constellation_difference_non_zero(constellation_name, json_file="source/twitterbot/info_JSON/constellation_history.json"):
+def constellation_difference_non_zero(constellation_name, json_file="config/info_JSON/constellation_history.json"):
     """
     Calculate non-zero differences in altitude, inclination, total satellites, and date for a given constellation.
 
     Args:
         constellation_name (str): The name of the constellation.
-        json_file (str): The path of the JSON file. Defaults to "source/twitterbot/info_JSON/constellation_history.json".
+        json_file (str): The path of the JSON file. Defaults to "config/info_JSON/constellation_history.json".
 
     Returns:
         tuple: A tuple containing non-zero differences in altitude counts, inclination counts, total satellites, and date (in days). If all differences are zero, return 0.

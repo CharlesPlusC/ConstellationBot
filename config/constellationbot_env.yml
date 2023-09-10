@@ -1,0 +1,29 @@
+name: constellationbot
+
+channels:
+  - conda-forge
+  - defaults
+
+dependencies:
+  - ipython
+  - jupyter
+  - pip  
+  - jplephem
+  - wheel
+  - xlsxwriter
+  - pandas
+  - matplotlib
+  - python
+  - scipy
+  - pillow
+  - astropy
+  - poliastro
+  - pip:
+    - datetime
+    - seaborn
+    - spacetrack
+    - sgp4
+    - matplotlib
+    - pandas
+    - numba
+    - numpy

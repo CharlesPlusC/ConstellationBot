@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import multiprocessing as mp
 from PIL import Image
 import numpy as np
-import cartopy.crs as ccrs
+# import cartopy.crs as ccrs
 import matplotlib as mpl
 from source.tools.constellation_tools import pull_constellation_TLEs
 from source.tools.conversions import sphere_coords, TLE_time, ecef2latlong, eci2ecef_astropy
@@ -78,7 +78,7 @@ def generate_state_gif(const):
         # Set the background color of the plot
         fig.patch.set_facecolor('xkcd:steel grey')
 
-        fig.suptitle('Latest Positions:' +const +'\n Date: ' + str(time.strftime("%y/%m/%d")) +", "+ str(len(eci_pos))+'satellites:', fontsize=16, y=0.95, x=0.5, color='black')
+        fig.suptitle('Latest Positions:' +const +'\n Date: ' + str(time.strftime("%d/%m/%y")) +", "+ str(len(eci_pos))+'satellites:', fontsize=16, y=0.95, x=0.5, color='black')
         plt.savefig(os.path.join(images_folder, f'{const}_{i}.png'), dpi=200, pad_inches=0.1)
         plt.close(fig)
 
@@ -221,7 +221,7 @@ def create_geom_frame(az, const_ephemerides, constellation_img_paths, const, ele
 
     fig.subplots_adjust(right=0.8)  # Adjust space to the right of the subplots
     print(f"Saving frame for {const} at azimuth {az} at location {constellation_img_paths + str(az) + '.png'}")
-    fig.suptitle('Orbital Configuration:' +const +'\n Date:' + str(time.strftime("%y/%m/%d")) + ', ' + str(len(const_ephemerides))+' satellites', fontsize=16, y=0.95, x=0.5, color='black')
+    fig.suptitle('Orbital Configuration:' +const +'\n Date:' + str(time.strftime("%d/%m/%y")) + ', ' + str(len(const_ephemerides))+' satellites', fontsize=16, y=0.95, x=0.5, color='black')
     # Save the figure
     fig.savefig(constellation_img_paths + str(az) + '.png', dpi=200, pad_inches=0.1)
     print(f"Saved frame for {const} at azimuth {az} at location {constellation_img_paths + str(az) + '.png'}")
@@ -375,6 +375,22 @@ def plot_ground_tracks(const):
     plt.close()
 
 if __name__ == "__main__":
-    const = 'swarm'
-    print("Generating geometry gif for:", const)
-    generate_geom_gif(const)
+    today = time.strftime("%A")
+
+    if today == 'Monday':
+        constellation = 'swarm'
+    elif today == 'Tuesday':
+        constellation = 'starlink'
+    elif today == 'Wednesday':
+        constellation = 'planet'
+    elif today == 'Thursday':
+        constellation = 'spire'
+    elif today == 'Friday':
+        constellation = 'iridium'
+    elif today == 'Saturday':
+        constellation = 'oneweb'
+    elif today == 'Sunday':
+        constellation = 'starlink'
+
+    print("Generating geometry gif for:", constellation)
+    generate_geom_gif(constellation)
