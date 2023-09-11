@@ -21,9 +21,7 @@ jobs:
       with:
         path: ~/miniconda/envs/constellationbot
         key: conda-env-${{ runner.os }}-${{ hashFiles('config/constellationbot_env.yml') }}
-        restore-keys: |
-          conda-env-${{ runner.os }}-
-    
+
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v2
       if: steps.cache-conda.outputs.cache-hit != 'true'
@@ -31,12 +29,10 @@ jobs:
         activate-environment: constellationbot
         environment-file: config/constellationbot_env.yml
         auto-activate-base: false
-        
+
     - name: Generate GIFs
       run: |
-        conda activate constellationbot
         python -m source.visualisation_maker.constellation_gifs 
-
     - name: Determine the absolute latest GIF
       run: |
         echo "LATEST_GIF=$(find images/constellation_anim/* -type f | xargs ls -t | head -n 1)" >> $GITHUB_ENV
