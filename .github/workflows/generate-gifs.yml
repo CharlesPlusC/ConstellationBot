@@ -15,24 +15,33 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Cache Conda environment
-      id: cache-conda
-      uses: actions/cache@v2
-      with:
-        path: ~/miniconda/envs/constellationbot
-        key: conda-env-${{ runner.os }}-${{ hashFiles('config/constellationbot_env.yml') }}
+    #- name: Cache Conda environment  # Commented out for troubleshooting
+    #  id: cache-conda
+    #  uses: actions/cache@v2
+    #  with:
+    #    path: ~/miniconda/envs/constellationbot
+    #    key: conda-env-${{ runner.os }}-${{ hashFiles('config/constellationbot_env.yml') }}
 
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v2
-      if: steps.cache-conda.outputs.cache-hit != 'true'
+      #if: steps.cache-conda.outputs.cache-hit != 'true'  # Commented out for troubleshooting
       with:
         activate-environment: constellationbot
         environment-file: config/constellationbot_env.yml
         auto-activate-base: false
 
-    - name: Generate GIFs
+    - name: Debug
       run: |
+        which python
+        conda list -n constellationbot
+        conda info --envs
+
+    - name: Activate and Run
+      run: |
+        eval "$(conda shell.bash hook)"
+        conda activate constellationbot
         python -m source.visualisation_maker.constellation_gifs 
+        
     - name: Determine the absolute latest GIF
       run: |
         echo "LATEST_GIF=$(find images/constellation_anim/* -type f | xargs ls -t | head -n 1)" >> $GITHUB_ENV
