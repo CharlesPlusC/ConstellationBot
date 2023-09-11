@@ -2,7 +2,6 @@ name: Generate GIFs
 
 on:
   schedule:
-    # This runs every day at 7AM UTC.
     - cron: '0 7 * * *'       
   workflow_dispatch:
 
@@ -16,31 +15,37 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
-    - name: Install and Setup Conda
-      run: |
-        # Install Miniconda
-        echo "Installing Miniconda..."
-        wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -O miniconda.sh
-        bash miniconda.sh -b -p $HOME/miniconda
-        echo "$HOME/miniconda/bin" >> $GITHUB_PATH
+    - name: Cache Conda environment
+      id: cache-conda
+      uses: actions/cache@v2
+      with:
+        path: ~/miniconda/envs/constellationbot
+        key: conda-env-${{ runner.os }}-${{ hashFiles('config/constellationbot_env.yml') }}
 
-        # Initialize Conda for bash shell
-        source $HOME/miniconda/etc/profile.d/conda.sh
-        conda config --set always_yes yes --set changeps1 no
-        conda update -q conda
-
-        # Create environment
-        conda env create -f config/constellationbot_env.yml
-        conda info --envs
+    - name: Setup Miniconda
+      uses: conda-incubator/setup-miniconda@v2
+      if: steps.cache-conda.outputs.cache-hit != 'true'
+      with:
+        activate-environment: constellationbot
+        environment-file: config/constellationbot_env.yml
+        auto-activate-base: false
 
     - name: Generate GIFs
       run: |
-        source $HOME/miniconda/etc/profile.d/conda.sh
-        conda activate constellationbot
         python -m source.visualisation_maker.constellation_gifs 
 
+    - name: Determine the absolute latest GIF
+      run: |
+        echo "LATEST_GIF=$(find images/constellation_anim/* -type f | xargs ls -t | head -n 1)" >> $GITHUB_ENV
+      
     - name: Upload GIFs as artifact
       uses: actions/upload-artifact@v2
       with:
         name: gifs
-        path: images/constellation_anim/gifs*
+        path: ${{ env.LATEST_GIF }}
+
+    - name: Trigger Website Update Workflow
+      run: |
+        curl -X POST -H "Authorization: token ${PERSONAL_ACCESS_TOKEN}" -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/CharlesPlusC/ConstellationBot/dispatches -d '{"event_type":"update-gifs"}'
+      env:
+        PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
