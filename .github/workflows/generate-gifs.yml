@@ -15,6 +15,15 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v2
 
+    - name: Cache Conda environment
+      id: cache-conda
+      uses: actions/cache@v2
+      with:
+        path: ~/miniconda/envs/constellationbot
+        key: conda-env-${{ runner.os }}-${{ hashFiles('config/constellationbot_env.yml') }}
+        restore-keys: |
+          conda-env-${{ runner.os }}-
+    
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v2
       if: steps.cache-conda.outputs.cache-hit != 'true'
@@ -22,13 +31,7 @@ jobs:
         activate-environment: constellationbot
         environment-file: config/constellationbot_env.yml
         auto-activate-base: false
-
-    - name: Cache Conda environment
-      id: cache-conda
-      uses: actions/cache@v2
-      with:
-        path: ~/miniconda/envs/constellationbot
-        key: conda-env-${{ runner.os }}-${{ hashFiles('config/constellationbot_env.yml') }}
+        
 
     - name: Generate GIFs
       run: |
