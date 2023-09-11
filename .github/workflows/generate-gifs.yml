@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      SLTRACK_PWD: ${{ secrets.SLTRACK_PWD }}
+      SLTRACK_USR: ${{ secrets.SLTRACK_USR }}
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
