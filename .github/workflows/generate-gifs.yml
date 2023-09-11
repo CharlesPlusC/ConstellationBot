@@ -32,9 +32,9 @@ jobs:
         environment-file: config/constellationbot_env.yml
         auto-activate-base: false
         
-
     - name: Generate GIFs
       run: |
+        conda activate constellationbot
         python -m source.visualisation_maker.constellation_gifs 
 
     - name: Determine the absolute latest GIF
