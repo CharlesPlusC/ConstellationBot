@@ -380,7 +380,7 @@ if __name__ == "__main__":
     if today == 'Monday':
         constellation = 'swarm'
     elif today == 'Tuesday':
-        constellation = 'starlink'
+        constellation = 'spire'
     elif today == 'Wednesday':
         constellation = 'planet'
     elif today == 'Thursday':

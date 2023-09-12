@@ -11,9 +11,18 @@ jobs:
     env:
       SLTRACK_PWD: ${{ secrets.SLTRACK_PWD }}
       SLTRACK_USR: ${{ secrets.SLTRACK_USR }}
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v2
+
+    - name: Cache Miniconda
+      uses: actions/cache@v2
+      with:
+        path: ~/miniconda3/envs/constellationbot  # This is the typical path for Conda environments, but it might vary depending on your setup
+        key: ${{ runner.os }}-constellationbot-${{ hashFiles('config/constellationbot_env.yml') }}
+        restore-keys: |
+          ${{ runner.os }}-constellationbot-
 
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v2
