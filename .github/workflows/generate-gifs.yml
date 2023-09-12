@@ -53,20 +53,17 @@ jobs:
         name: gifs
         path: ${{ env.LATEST_GIF }}
 
-    - name: Get artifact ID
-      id: get_id
+    - name: Get artifact URL
+      id: get_url
       run: |
-        ARTIFACT_ID=$(curl -H "Authorization: token ${PERSONAL_ACCESS_TOKEN}" \
+        ARTIFACT_URL=$(curl -H "Authorization: token ${PERSONAL_ACCESS_TOKEN}" \
                             -H "Accept: application/vnd.github.v3+json" \
                             https://api.github.com/repos/CharlesPlusC/ConstellationBot/actions/artifacts | \
-                            jq '.artifacts[0].id')
-        echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
+                            jq '.artifacts[0].archive_download_url' -r)
+        echo "ARTIFACT_URL=$ARTIFACT_URL" >> $GITHUB_ENV
       env:
-          PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-      
-    - name: Construct ARTIFACT_URL
-      run: echo "ARTIFACT_URL=https://github.com/CharlesPlusC/ConstellationBot/actions/artifacts/${ARTIFACT_ID}/zip" >> $GITHUB_ENV
-      
+        PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
     - name: Print ARTIFACT_URL for Debugging
       run: echo $ARTIFACT_URL
       env:
