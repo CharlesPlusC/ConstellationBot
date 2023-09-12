@@ -64,14 +64,9 @@ jobs:
       env:
           PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
       
-    - name: Set artifact download URL
+    - name: Construct ARTIFACT_URL
       run: echo "ARTIFACT_URL=https://github.com/CharlesPlusC/ConstellationBot/actions/artifacts/${ARTIFACT_ID}/zip" >> $GITHUB_ENV
       
-    - name: Construct and Debug ARTIFACT_URL
-      run: |
-        echo "ARTIFACT_URL=https://github.com/CharlesPlusC/ConstellationBot/actions/artifacts/${ARTIFACT_ID}/zip" >> $GITHUB_ENV
-        echo $ARTIFACT_URL
-
     - name: Print ARTIFACT_URL for Debugging
       run: echo $ARTIFACT_URL
       env:
@@ -87,5 +82,3 @@ jobs:
       env:
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         ARTIFACT_URL: ${{ env.ARTIFACT_URL }}
-
-        
