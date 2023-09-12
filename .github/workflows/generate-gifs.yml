@@ -77,7 +77,6 @@ jobs:
       env:
         ARTIFACT_URL: ${{ env.ARTIFACT_URL }}
 
-
     - name: Trigger Website Update Workflow
       run: |
         curl -X POST \
