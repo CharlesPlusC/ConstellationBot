@@ -57,17 +57,26 @@ jobs:
       id: get_id
       run: |
         ARTIFACT_ID=$(curl -H "Authorization: token ${PERSONAL_ACCESS_TOKEN}" \
-                   -H "Accept: application/vnd.github.v3+json" \
-                   https://api.github.com/repos/CharlesPlusC/ConstellationBot/actions/artifacts | \
-                   jq '.artifacts[0].id' -r)
+                            -H "Accept: application/vnd.github.v3+json" \
+                            https://api.github.com/repos/CharlesPlusC/ConstellationBot/actions/artifacts | \
+                            jq '.artifacts[0].id')
         echo "ARTIFACT_ID=$ARTIFACT_ID" >> $GITHUB_ENV
       env:
-        PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
-
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+      
+    - name: Set artifact download URL
+      run: echo "ARTIFACT_URL=https://github.com/CharlesPlusC/ConstellationBot/actions/artifacts/${ARTIFACT_ID}/zip" >> $GITHUB_ENV
+      
     - name: Construct and Debug ARTIFACT_URL
       run: |
         echo "ARTIFACT_URL=https://github.com/CharlesPlusC/ConstellationBot/actions/artifacts/${ARTIFACT_ID}/zip" >> $GITHUB_ENV
         echo $ARTIFACT_URL
+
+    - name: Print ARTIFACT_URL for Debugging
+      run: echo $ARTIFACT_URL
+      env:
+        ARTIFACT_URL: ${{ env.ARTIFACT_URL }}
+
 
     - name: Trigger Website Update Workflow
       run: |
@@ -79,3 +88,5 @@ jobs:
       env:
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         ARTIFACT_URL: ${{ env.ARTIFACT_URL }}
+
+        
