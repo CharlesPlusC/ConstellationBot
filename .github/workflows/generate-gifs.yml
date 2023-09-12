@@ -19,7 +19,7 @@ jobs:
     - name: Cache Miniconda
       uses: actions/cache@v2
       with:
-        path: ~/miniconda3/envs/constellationbot  # This is the typical path for Conda environments, but it might vary depending on your setup
+        path: ~/miniconda3/envs/constellationbot
         key: ${{ runner.os }}-constellationbot-${{ hashFiles('config/constellationbot_env.yml') }}
         restore-keys: |
           ${{ runner.os }}-constellationbot-
@@ -63,6 +63,9 @@ jobs:
         echo "ARTIFACT_URL=$URL" >> $GITHUB_ENV
       env:
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+
+    - name: Debug ARTIFACT_URL
+      run: echo $ARTIFACT_URL
 
     - name: Trigger Website Update Workflow
       run: |
