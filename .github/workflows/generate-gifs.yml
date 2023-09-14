@@ -31,21 +31,18 @@ jobs:
         environment-file: config/constellationbot_env.yml
         auto-activate-base: false
 
-    - name: Debug
-      run: |
-        which python
-        conda list -n constellationbot
-        conda info --envs
-
     - name: Activate and Run
       run: |
         eval "$(conda shell.bash hook)"
         conda activate constellationbot
         python -m source.visualisation_maker.constellation_gifs 
 
-    - name: Determine the absolute latest GIF
+    - name: Determine the absolute latest GIF and its Constellation Name
       run: |
-        echo "LATEST_GIF=$(find images/constellation_anim/* -type f | xargs ls -t | head -n 1)" >> $GITHUB_ENV
+        LATEST_GIF=$(find images/constellation_anim/* -type f | xargs ls -t | head -n 1)
+        CONSTELLATION_NAME=$(basename "$LATEST_GIF" | cut -d'_' -f2)
+        echo "LATEST_GIF=$LATEST_GIF" >> $GITHUB_ENV
+        echo "CONSTELLATION_NAME=$CONSTELLATION_NAME" >> $GITHUB_ENV
 
     - name: Upload GIFs as artifact
       uses: actions/upload-artifact@v2
@@ -64,18 +61,14 @@ jobs:
       env:
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
 
-    - name: Print ARTIFACT_URL for Debugging
-      run: echo $ARTIFACT_URL
-      env:
-        ARTIFACT_URL: ${{ env.ARTIFACT_URL }}
-
     - name: Trigger Website Update Workflow
       run: |
         curl -X POST \
              -H "Authorization: token ${PERSONAL_ACCESS_TOKEN}" \
              -H "Accept: application/vnd.github.v3+json" \
              https://api.github.com/repos/CharlesPlusC/CharlesPlusC.github.io/dispatches \
-             -d "{\"event_type\":\"update-gifs\", \"client_payload\": {\"artifact_url\": \"$ARTIFACT_URL\"}}"
+             -d "{\"event_type\":\"update-gifs\", \"client_payload\": {\"artifact_url\": \"$ARTIFACT_URL\", \"constellation_name\": \"$CONSTELLATION_NAME\"}}"
       env:
         PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
         ARTIFACT_URL: ${{ env.ARTIFACT_URL }}
+        CONSTELLATION_NAME: ${{ env.CONSTELLATION_NAME }}
