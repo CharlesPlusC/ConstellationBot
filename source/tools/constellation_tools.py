@@ -150,8 +150,8 @@ def pull_constellation_statevecs(cart_txt, constellation):
                 V=kep_elems["true_anomaly"],
             )
             state_i = [x_car, y_car, z_car, u_car, v_car, w_car]
-            utc_stamp = [datetime.now()]
-            jd_stamp = utc_to_jd(utc_stamp)
+            utc_stamp = datetime.datetime.now()
+            jd_stamp = utc_to_jd([utc_stamp])
             f.write(
                 "sat:"
                 + str(tle_dict["satellite catalog number"])

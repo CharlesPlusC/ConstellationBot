@@ -8,6 +8,9 @@ from PIL import Image
 import numpy as np
 # import cartopy.crs as ccrs
 import matplotlib as mpl
+from matplotlib.animation import FuncAnimation
+from mpl_toolkits.mplot3d import Axes3D
+
 from source.tools.constellation_tools import pull_constellation_TLEs
 from source.tools.conversions import sphere_coords, TLE_time, ecef2latlong, eci2ecef_astropy
 from source.tools.propagator import sgp4_prop_TLE
@@ -20,15 +23,10 @@ animation_folder_path = cwd + '/images/constellation_anim'
 
 # loop through each constellation and create a path for the constellation file and the image folder
 def generate_state_gif(const):
-    # fetch data and return the data to be plotted
-    gif_folder = os.path.join('images/constellation_anim/gifs/', const)
-    images_folder = os.path.join('images/constellation_anim/gif_frames/', const)
-    os.makedirs(images_folder, exist_ok=True)
-    os.makedirs(gif_folder, exist_ok=True)
-    constellation_paths, constellation_img_paths = fetch_sat_info(const=const, format="statevecs", anim='latest_state')
 
-    earth_radius = 6378.137
-    plotsize = (8, 8)
+    # Assuming fetch_sat_info and sphere_coords are defined somewhere else in your code
+    # If not, they should be added
+    constellation_paths, constellation_img_paths = fetch_sat_info(const=const, format="statevecs", anim='latest_state')
 
     eci_pos, eci_vel, alts = pos_vel_from_statevecs(constellation_paths)
 
@@ -36,71 +34,42 @@ def generate_state_gif(const):
     norm = Normalize(vmin=min(alts), vmax=max(alts))
     scalar_map = cm.ScalarMappable(norm=norm, cmap=cmap)
 
-    view_elev = 0
+    fig = plt.figure(figsize=(8, 8))
+    ax = fig.add_subplot(111, projection="3d")
+    ax.set_facecolor('xkcd:steel grey')
+    ax.xaxis.pane.set_facecolor('xkcd:steel grey')
+    ax.yaxis.pane.set_facecolor('xkcd:steel grey')
+    ax.zaxis.pane.set_facecolor('xkcd:steel grey')
+
+    # Setup for the ax (redundant code from your original function)
+    fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
+    ax.set_box_aspect([1, 1, 1])
+    ax.set_xticks(np.arange(-8000, 8001, 2000))
+    ax.set_yticks(np.arange(-8000, 8001, 2000))
+    ax.set_zticks(np.arange(-8000, 8001, 2000))
+    ax.set_xticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
+    ax.set_yticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
+    ax.set_zticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
+    fig.patch.set_facecolor('xkcd:steel grey')
+    fig.suptitle('Latest Positions:'+ const +'\n Date: ' + str(time.strftime("%d/%m/%y")) +", "+ str(len(eci_pos))+' satellites', fontsize=16, y=0.95, x=0.5, color='black')
+
+    earth_x, earth_y, earth_z = sphere_coords(6378.138, granularity=50)
+
+    scatters = ax.scatter(*np.array(eci_pos).T, c=scalar_map.to_rgba(alts), s=2)
+    wireframe = ax.plot_wireframe(earth_x, earth_y, earth_z, color='xkcd:grey', alpha=0.4)
+
+    def update(i):
+        ax.view_init(30, i)
+        return scatters, wireframe
+
+    ani = FuncAnimation(fig, update, frames=np.arange(0, 360, 5), blit=True)
+
+    gif_folder = os.path.join('images/constellation_anim/gifs/', const)
+    os.makedirs(gif_folder, exist_ok=True)
     
-    for i in range(0, 356, 5): #not 360 since this is the same as 0
-        fig = plt.figure(figsize=plotsize)
-        ax = fig.add_subplot(111, projection="3d")
-        ax.set_facecolor('xkcd:steel grey')
-        ax.xaxis.pane.set_facecolor('xkcd:steel grey')
-        ax.yaxis.pane.set_facecolor('xkcd:steel grey')
-        ax.zaxis.pane.set_facecolor('xkcd:steel grey')
-
-        # snip the white space around the figure
-        fig.subplots_adjust(left=0, right=1, bottom=0, top=1)
-        ax.elev = view_elev
-        ax.azim = i
-
-        earth_x, earth_y, earth_z, = sphere_coords(earth_radius, granularity=50)
-
-        colors = scalar_map.to_rgba(alts)
-        ax.scatter(*np.array(eci_pos).T, c=colors, s=2)
-        # ax.plot_surface(earth_x, earth_y, earth_z, color='xkcd:light grey', alpha=0.4) #plot the Earth-radius sphere
-        ax.plot_wireframe(earth_x, earth_y, earth_z, color='xkcd:grey', alpha=0.4) #plot the Earth-radius sphere
-        fig.colorbar(scalar_map, ax=ax, shrink=0.5, aspect=10, label='Altitude (km)')
-
-        ax.set_xlabel('X-eci (km)', fontsize=10, color='black')
-        ax.set_ylabel('Y-eci (km)', fontsize=10, color='black')
-        ax.set_zlabel('Z-eci (km)', fontsize=10, color='black')
-        ax.set_xticklabels([])
-        ax.set_yticklabels([])
-        ax.set_zticklabels([])
-        ax.set_box_aspect([1, 1, 1])
-        # set the zaxis labels to go from -8000 to 8000 in steps of 2000
-        ax.set_zticks(np.arange(-8000, 8001, 2000))
-        ax.set_yticks(np.arange(-8000, 8001, 2000))
-        ax.set_xticks(np.arange(-8000, 8001, 2000))
-
-        ax.set_zticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
-        ax.set_yticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
-        ax.set_xticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
-
-        # Set the background color of the plot
-        fig.patch.set_facecolor('xkcd:steel grey')
-
-        fig.suptitle('Latest Positions:' +const +'\n Date: ' + str(time.strftime("%d/%m/%y")) +", "+ str(len(eci_pos))+'satellites:', fontsize=16, y=0.95, x=0.5, color='black')
-        plt.savefig(os.path.join(images_folder, f'{const}_{i}.png'), dpi=200, pad_inches=0.1)
-        plt.close(fig)
-
-    print(f"Combining frames into gif for {const}...")
-    gif_folder = os.path.join('images/constellation_anim/gifs/', const)
-    os.makedirs(gif_folder, exist_ok=True)
-
-    print("images folder:", images_folder)
-
-    images = sorted([img for img in os.listdir(images_folder) if img.endswith(".png")], key=lambda x: int(x.split('_')[-1].split('.')[0]))
-    print("images:", images)
-    image_list = [Image.open(os.path.join(images_folder, img)) for img in images]
-    print("image_list:", image_list)
-    gif_folder = os.path.join('images/constellation_anim/gifs/', const)
-    os.makedirs(gif_folder, exist_ok=True)
-    image_list[0].save(os.path.join(gif_folder, f'{const}_{time.strftime("%y_%m_%d")}_anim.gif'), save_all=True, append_images=image_list[1:], duration=115, loop=0)
+    ani.save(os.path.join(gif_folder, f'{const}_{time.strftime("%y_%m_%d")}_anim.gif'), writer='imagemagick', fps=10)
 
     print(f"Finished creating .gif file for {const}")
-
-    print(f"Deleting frames for {const}...")
-    for img in images:
-        os.remove(os.path.join(images_folder, img))
 
 def plot_satellite_data(ax, const_ephemerides, norm_alts_all, random_seed=42):
     # Set the random seed to ensure reproducible results
@@ -375,22 +344,24 @@ def plot_ground_tracks(const):
     plt.close()
 
 if __name__ == "__main__":
-    today = time.strftime("%A")
+    # today = time.strftime("%A")
 
-    if today == 'Monday':
-        constellation = 'swarm'
-    elif today == 'Tuesday':
-        constellation = 'spire'
-    elif today == 'Wednesday':
-        constellation = 'planet'
-    elif today == 'Thursday':
-        constellation = 'spire'
-    elif today == 'Friday':
-        constellation = 'iridium'
-    elif today == 'Saturday':
-        constellation = 'oneweb'
-    elif today == 'Sunday':
-        constellation = 'starlink'
+    # if today == 'Monday':
+    #     constellation = 'swarm'
+    # elif today == 'Tuesday':
+    #     constellation = 'spire'
+    # elif today == 'Wednesday':
+    #     constellation = 'planet'
+    # elif today == 'Thursday':
+    #     constellation = 'spire'
+    # elif today == 'Friday':
+    #     constellation = 'iridium'
+    # elif today == 'Saturday':
+    #     constellation = 'oneweb'
+    # elif today == 'Sunday':
+    #     constellation = 'starlink'
 
-    print("Generating geometry gif for:", constellation)
-    generate_geom_gif(constellation)
+    constells = ["starlink"]
+    for const in constells:
+        print("Generating geometry gif for:", const)
+        generate_state_gif(const)
