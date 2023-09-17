@@ -68,21 +68,23 @@ def generate_state_gif(const):
 
     print(f"Finished creating .gif file for {const}")
 
-def plot_satellite_data(ax, const_ephemerides, norm_alts_all, random_seed=42):
-    # Set the random seed to ensure reproducible results
-    np.random.seed(random_seed)
+from mpl_toolkits.mplot3d.art3d import Line3DCollection
 
-    # Calculate the length of each ephemeris and create a list of random numbers
+def plot_satellite_data(ax, const_ephemerides, norm_alts_all, random_seed=42):
+    np.random.seed(random_seed)
+    
     len_ephem = [len(ephem) for ephem in const_ephemerides]
     rand_list = [np.random.randint(0, len_ephem[i]) for i in range(len(len_ephem))]
+
+    lines = []
+    colors = []
 
     index = 0
     for sat_idx, sat in enumerate(const_ephemerides):
         ephems = np.array([ephem[1] for ephem in sat])
-        num_satellites = len(ephems)
-        rand = rand_list[sat_idx]  
-
+        
         # Plot the first point of each ephemeris
+        rand = rand_list[sat_idx]  
         ax.scatter(
             ephems[rand][0],
             ephems[rand][1],
@@ -93,51 +95,52 @@ def plot_satellite_data(ax, const_ephemerides, norm_alts_all, random_seed=42):
             s=0.5
         )
 
-        for i in range(len(ephems) - 1):
-            x_values, y_values, z_values = ephems[i:i + 2].T
+        # Gather segments and corresponding colors
+        segments = np.array([ephems[i:i+2] for i in range(len(ephems)-1)])
+        segment_colors = cm.jet(norm_alts_all[index:index+len(segments)])
+        lines.extend(segments)
+        colors.extend(segment_colors)
 
-            # Plot the line without markers
-            ax.plot(
-                x_values,
-                y_values,
-                z_values,
-                color=cm.jet(norm_alts_all[index + i]),
-                linewidth=0.15,
-                alpha=0.4
-            )
+        index += len(ephems)
 
-        index += num_satellites
+    # Create a Line3DCollection object
+    lc = Line3DCollection(lines, colors=colors, linewidths=0.15, alpha=0.4)
+    ax.add_collection(lc)
 
     return
 
 def process_geom_data(const):
-    # fetch data and return the data to be plotted
     constellation_path, constellation_img_paths = fetch_sat_info(const, format="TLE", anim="current_geometry")
-
-    # Add a check for whether a gif already exists
+    
     gif_folder = os.path.join('images/constellation_anim/gifs/', const)
     gif_file = os.path.join(gif_folder, f'geom_{const}_{time.strftime("%y_%m_%d")}.gif')
+    
     if os.path.exists(gif_file):
         print(f"Gif file for {const} already exists. Skipping...")
-        pass
+        return [], []
 
-    const_ephemerides = []
-    individual_TLEs = []
-    with open(constellation_path, 'r') as f:
-        for line in f:
-            individual_TLEs.append(line.strip())
-            if len(individual_TLEs) == 2:
-                tle_string = '\n'.join(individual_TLEs)
-                TLE_jd = TLE_time(tle_string)
-                TLE_jd_plusdt = TLE_jd + 120/1440
-                const_ephemerides.append(sgp4_prop_TLE(TLE=tle_string, jd_start=TLE_jd, jd_end=TLE_jd_plusdt, dt=120, alt_series=False))
-                individual_TLEs = []
+    def read_tles(file_path):
+        with open(file_path, 'r') as f:
+            tle_lines = []
+            for line in f:
+                tle_lines.append(line.strip())
+                if len(tle_lines) == 2:
+                    yield '\n'.join(tle_lines)
+                    tle_lines = []
+
+    const_ephemerides = [
+        sgp4_prop_TLE(TLE=tle_string, 
+                      jd_start=TLE_time(tle_string), 
+                      jd_end=TLE_time(tle_string) + 120/1440, 
+                      dt=120, alt_series=False) 
+        for tle_string in read_tles(constellation_path)
+    ]
+
     return const_ephemerides, constellation_img_paths
 
 def create_geom_frame(az, const_ephemerides, constellation_img_paths, const, elev=0):
-    print(f"Inside geom frame {az} for {const}...")
-    print(f"Creating frame for {constellation_img_paths + str(az) + '.png'}...")
-    fig = plt.figure(figsize=(6, 6), facecolor='xkcd:steel grey') 
+
+    fig, ax = plt.subplots(figsize=(6, 6), subplot_kw={'projection': '3d'}, facecolor='xkcd:steel grey')
 
     # First subplot
     ax1 = fig.add_subplot(111, projection='3d', auto_add_to_figure=False)
@@ -164,18 +167,19 @@ def create_geom_frame(az, const_ephemerides, constellation_img_paths, const, ele
     ax1.yaxis.pane.set_facecolor('xkcd:steel grey')
     ax1.zaxis.pane.set_facecolor('xkcd:steel grey')
 
-    alts_all = []
-    for sat in const_ephemerides:
-        ephems = np.array([ephem[1] for ephem in sat])
-        alts_sat = np.linalg.norm(ephems, axis=1) - 6378.137
-        alts_all.extend(alts_sat)
+    # Corrected the list comprehension for alts_all
+    alts_all = [np.linalg.norm(sat_ephem[1], axis=1) - 6378.137 for sat_ephem in const_ephemerides]
+    alts_all = np.concatenate(alts_all)  # Flatten the list
 
     min_alt_all = np.min(alts_all)
     max_alt_all = np.max(alts_all)
     norm_alts_all = (alts_all - min_alt_all) / (max_alt_all - min_alt_all)
 
+    plot_satellite_data(ax, const_ephemerides, norm_alts_all)
     
-    plot_satellite_data(ax1, const_ephemerides, norm_alts_all=norm_alts_all)
+    # Title reintroduced here
+    title_text = f'Orbital Configuration: {const}\nDate: {time.strftime("%d/%m/%y")}, {len(const_ephemerides)} satellites'
+    ax.set_title(title_text, fontsize=16, y=1.05, color='black')
 
     cb_ax = fig.add_axes([0.85, 0.3, 0.03, 0.4]) # [left, bottom, width, height]
     sm = plt.cm.ScalarMappable(cmap=cm.jet, norm=plt.Normalize(vmin=min_alt_all, vmax=max_alt_all))
@@ -199,12 +203,14 @@ def create_frame(args):
     create_geom_frame(az, const_ephemerides, constellation_img_paths, const)
 
 def generate_geom_gif(const):
+    const_ephemerides, constellation_img_paths = process_geom_data(const)
+    if not const_ephemerides:
+        return
     # Process the geometric data for the constellation
     const_ephemerides, _ = process_geom_data(const)
 
     # Set up the figure and axis
-    fig = plt.figure(figsize=(6, 6), facecolor='xkcd:steel grey')
-    ax = fig.add_subplot(111, projection='3d')
+    fig, ax = plt.subplots(figsize=(6, 6), subplot_kw={'projection': '3d'})
 
     # Axis setup code
     ax.set_box_aspect([1, 1, 1])
@@ -239,17 +245,12 @@ def generate_geom_gif(const):
     cbar.set_label('Altitude (km)', fontsize=12, color='black', labelpad=5)
     cbar.ax.tick_params(labelsize=9, color='black')
 
-    # Define the animation update function
     def update(az):
         ax.cla()
-        ax.view_init(30, az)
-        plot_satellite_data(ax, const_ephemerides, norm_alts_all)
-        return ax
+        create_geom_frame(az, const_ephemerides, constellation_img_paths, const)
 
-    # Generate the animation
     ani = FuncAnimation(fig, update, frames=np.arange(0, 360, 5), blit=False)
 
-    # Save the animation as a GIF
     gif_folder = os.path.join('images/constellation_anim/gifs/', const)
     os.makedirs(gif_folder, exist_ok=True)
     ani.save(os.path.join(gif_folder, f'geom_{const}_{time.strftime("%y_%m_%d")}.gif'), writer='imagemagick', fps=10)
@@ -373,21 +374,21 @@ def plot_ground_tracks(const):
     plt.close()
 
 if __name__ == "__main__":
-    today = time.strftime("%A")
+    # today = time.strftime("%A")
 
-    if today == 'Monday':
-        constellation = 'swarm'
-    elif today == 'Tuesday':
-        constellation = 'spire'
-    elif today == 'Wednesday':
-        constellation = 'planet'
-    elif today == 'Thursday':
-        constellation = 'spire'
-    elif today == 'Friday':
-        constellation = 'iridium'
-    elif today == 'Saturday':
-        constellation = 'oneweb'
-    elif today == 'Sunday':
-        constellation = 'starlink'
+    # if today == 'Monday':
+    #     constellation = 'swarm'
+    # elif today == 'Tuesday':
+    #     constellation = 'spire'
+    # elif today == 'Wednesday':
+    #     constellation = 'planet'
+    # elif today == 'Thursday':
+    #     constellation = 'spire'
+    # elif today == 'Friday':
+    #     constellation = 'iridium'
+    # elif today == 'Saturday':
+    #     constellation = 'oneweb'
+    # elif today == 'Sunday':
+    #     constellation = 'starlink'
 
-    generate_state_gif(constellation)
+    generate_geom_gif('spire')
