@@ -139,7 +139,6 @@ def pull_constellation_statevecs(cart_txt, constellation):
             tle_dict["revolution number at epoch"] = line_two[63:68]
 
             kep_elems = tle_convert(tle_dict)
-            print("kepelems:",kep_elems)
 
             x_car, y_car, z_car, u_car, v_car, w_car = kep2car(
                 a=kep_elems["a"],
