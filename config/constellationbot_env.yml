@@ -5,23 +5,22 @@ channels:
   - defaults
 
 dependencies:
+  - python=3.8
   - ipython
   - jupyter
-  - pip  
-  - jplephem
-  - wheel
-  - xlsxwriter
   - pandas
   - matplotlib
-  - python
   - scipy
   - pillow
   - astropy
   - poliastro
+  - jplephem
+  - xlsxwriter
+  - wheel
+  - seaborn  
+  - numba  
+  - numpy  
   - pip:
-    - datetime
-    - seaborn
-    - spacetrack
-    - sgp4
-    - numba
-    - numpy
+    - datetime  
+    - spacetrack 
+    - sgp4  
