@@ -372,24 +372,21 @@ def plot_ground_tracks(const):
     plt.close()
 
 if __name__ == "__main__":
-    # today = time.strftime("%A")
+    today = time.strftime("%A")
 
-    # if today == 'Monday':
-    #     constellation = 'swarm'
-    # elif today == 'Tuesday':
-    #     constellation = 'spire'
-    # elif today == 'Wednesday':
-    #     constellation = 'planet'
-    # elif today == 'Thursday':
-    #     constellation = 'spire'
-    # elif today == 'Friday':
-    #     constellation = 'iridium'
-    # elif today == 'Saturday':
-    #     constellation = 'oneweb'
-    # elif today == 'Sunday':
-    #     constellation = 'starlink'
+    if today == 'Monday':
+        constellation = 'swarm'
+    elif today == 'Tuesday':
+        constellation = 'starlink'
+    elif today == 'Wednesday':
+        constellation = 'planet'
+    elif today == 'Thursday':
+        constellation = 'spire'
+    elif today == 'Friday':
+        constellation = 'iridium'
+    elif today == 'Saturday':
+        constellation = 'oneweb'
+    elif today == 'Sunday':
+        constellation = 'spire'
 
-    constells = ["planet"]
-    for const in constells:
-        print("Generating geometry gif for:", const)
-        generate_state_gif(const)
+    generate_state_gif('swarm')
