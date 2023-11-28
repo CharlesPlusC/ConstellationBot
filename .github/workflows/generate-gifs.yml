@@ -19,17 +19,21 @@ jobs:
     - name: Cache Miniconda
       uses: actions/cache@v2
       with:
-        path: ~/miniconda3/envs/constellationbot
-        key: ${{ runner.os }}-constellationbot-${{ hashFiles('config/constellationbot_env.yml') }}
+        path: ~/miniconda3
+        key: ${{ runner.os }}-miniconda-${{ hashFiles('config/constellationbot_env.yml') }}
         restore-keys: |
-          ${{ runner.os }}-constellationbot-
+          ${{ runner.os }}-miniconda-
 
     - name: Setup Miniconda
       uses: conda-incubator/setup-miniconda@v2
       with:
+        miniconda-version: "latest"
         activate-environment: constellationbot
         environment-file: config/constellationbot_env.yml
         auto-activate-base: false
+
+    - name: Update Conda
+      run: conda update -n base -c defaults conda
 
     - name: Activate and Run
       run: |
