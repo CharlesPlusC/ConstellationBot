@@ -238,6 +238,9 @@ def generate_geom_gif(const):
     cbar.set_label('Altitude (km)', fontsize=12, color='black', labelpad=5)
     cbar.ax.tick_params(labelsize=9, color='black')
 
+    # Set the title
+    fig.suptitle('Orbital Configuration:' +const +'\n Date:' + str(time.strftime("%d/%m/%y")) + ', ' + str(len(const_ephemerides))+' satellites', fontsize=16, y=0.95, x=0.5, color='black')
+
     # Define the animation update function
     def update(az):
         ax.cla()
@@ -372,21 +375,24 @@ def plot_ground_tracks(const):
     plt.close()
 
 if __name__ == "__main__":
-    today = time.strftime("%A")
+    # today = time.strftime("%A")
 
-    if today == 'Monday':
-        constellation = 'swarm'
-    elif today == 'Tuesday':
-        constellation = 'starlink'
-    elif today == 'Wednesday':
-        constellation = 'planet'
-    elif today == 'Thursday':
-        constellation = 'spire'
-    elif today == 'Friday':
-        constellation = 'iridium'
-    elif today == 'Saturday':
-        constellation = 'oneweb'
-    elif today == 'Sunday':
-        constellation = 'spire'
+    # if today == 'Monday':
+    #     constellation = 'swarm'
+    # elif today == 'Tuesday':
+    #     constellation = 'starlink'
+    # elif today == 'Wednesday':
+    #     constellation = 'planet'
+    # elif today == 'Thursday':
+    #     constellation = 'spire'
+    # elif today == 'Friday':
+    #     constellation = 'iridium'
+    # elif today == 'Saturday':
+    #     constellation = 'oneweb'
+    # elif today == 'Sunday':
+    #     constellation = 'spire'
 
-    generate_state_gif('swarm')
+    # generate_state_gif('swarm')
+    constellations = ['oneweb', 'starlink', 'planet', 'swarm', 'spire', 'iridium']
+    for constell in constellations:
+        generate_geom_gif(constell)
