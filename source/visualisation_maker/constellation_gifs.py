@@ -100,7 +100,7 @@ def plot_satellite_data(ax, const_ephemerides, norm_alts_all, random_seed=42):
                 x_values,
                 y_values,
                 z_values,
-                color=cm.jet(norm_alts_all[index + i]),
+                color = cm.jet(norm_alts_all[(index + i) % len(norm_alts_all)]),
                 linewidth=0.15,
                 alpha=0.4
             )
@@ -197,15 +197,86 @@ def create_frame(args):
     print(f"Creating frame for {const} at azimuth {az}...")
     create_geom_frame(az, const_ephemerides, constellation_img_paths, const)
 
+# def generate_geom_gif(const):
+#     # Process the geometric data for the constellation
+#     const_ephemerides, _ = process_geom_data(const)
+#     print(f"Processing geometric data for {const}...")
+#     print(f"length of const ephemerides: {len(const_ephemerides)}")
+
+#     # Set up the figure and axis
+#     fig = plt.figure(figsize=(6, 6), facecolor='xkcd:steel grey')
+#     ax = fig.add_subplot(111, projection='3d')
+
+#     # Axis setup code
+#     ax.set_box_aspect([1, 1, 1])
+#     ax.set_zticks(np.arange(-8000, 8001, 2000))
+#     ax.set_yticks(np.arange(-8000, 8001, 2000))
+#     ax.set_xticks(np.arange(-8000, 8001, 2000))
+#     ax.set_xticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
+#     ax.set_yticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
+#     ax.set_zticklabels([f'{int(i)}' for i in np.arange(-8000, 8001, 2000)], fontsize=9, color='black')
+#     ax.set_facecolor('xkcd:steel grey')
+#     ax.xaxis.pane.set_facecolor('xkcd:steel grey')
+#     ax.yaxis.pane.set_facecolor('xkcd:steel grey')
+#     ax.zaxis.pane.set_facecolor('xkcd:steel grey')
+
+#     # Compute altitudes for the ephemerides
+#     alts_all = []
+#     for sat in const_ephemerides:
+#         ephems = np.array([ephem[1] for ephem in sat])
+#         alts_sat = np.linalg.norm(ephems, axis=1) - 6378.137
+#         alts_all.extend(alts_sat)
+
+#     # Normalize altitudes for colormap
+#     min_alt_all = np.min(alts_all)
+#     max_alt_all = np.max(alts_all)
+#     norm_alts_all = (alts_all - min_alt_all) / (max_alt_all - min_alt_all)
+
+#     # Setup colorbar
+#     print(f"min_alt_all: {min_alt_all}, max_alt_all: {max_alt_all}")
+#     cb_ax = fig.add_axes([0.85, 0.3, 0.03, 0.4])
+#     sm = plt.cm.ScalarMappable(cmap=cm.jet, norm=plt.Normalize(vmin=min_alt_all, vmax=max_alt_all))
+#     sm._A = []  # Needed for ScalarMappable
+#     cbar = fig.colorbar(sm, cax=cb_ax)
+#     cbar.set_label('Altitude (km)', fontsize=12, color='black', labelpad=5)
+#     cbar.ax.tick_params(labelsize=9, color='black')
+
+#     # Set the title
+#     fig.suptitle('Orbital Configuration:' +const +'\n Date:' + str(time.strftime("%d/%m/%y")) + ', ' + str(len(const_ephemerides))+' satellites', fontsize=16, y=0.95, x=0.5, color='black')
+
+#     # Define the animation update function
+#     def update(az):
+#         ax.cla()
+#         ax.view_init(30, az)
+#         plot_satellite_data(ax, const_ephemerides, norm_alts_all)
+#         return ax
+
+#     print(f"title set to {const}...")
+#     # Generate the animation
+#     ani = FuncAnimation(fig, update, frames=np.arange(0, 360, 5), blit=False)
+#     print(f"Finished creating animation for {const}...")
+
+#     # Save the animation as a GIF
+#     gif_folder = os.path.join('images/constellation_anim/gifs/', const)
+#     print(f"Saving gif for {const} at {gif_folder}...")
+#     os.makedirs(gif_folder, exist_ok=True)
+#     print(f"Saving gif for {const} at {gif_folder}...")
+#     ani.save(os.path.join(gif_folder, f'geom_{const}_{time.strftime("%y_%m_%d")}.gif'), writer='imagemagick', fps=10)
+
+#     print(f"Finished creating .gif file for {const}")
+    
+
 def generate_geom_gif(const):
     # Process the geometric data for the constellation
     const_ephemerides, _ = process_geom_data(const)
+    print(f"Processing geometric data for {const}...")
+    print(f"length of const ephemerides: {len(const_ephemerides)}")
 
     # Set up the figure and axis
     fig = plt.figure(figsize=(6, 6), facecolor='xkcd:steel grey')
     ax = fig.add_subplot(111, projection='3d')
 
-    # Axis setup code
+    # Axis setup
     ax.set_box_aspect([1, 1, 1])
     ax.set_zticks(np.arange(-8000, 8001, 2000))
     ax.set_yticks(np.arange(-8000, 8001, 2000))
@@ -218,43 +289,51 @@ def generate_geom_gif(const):
     ax.yaxis.pane.set_facecolor('xkcd:steel grey')
     ax.zaxis.pane.set_facecolor('xkcd:steel grey')
 
-    # Compute altitudes for the ephemerides
-    alts_all = []
-    for sat in const_ephemerides:
-        ephems = np.array([ephem[1] for ephem in sat])
-        alts_sat = np.linalg.norm(ephems, axis=1) - 6378.137
-        alts_all.extend(alts_sat)
+    alts_all = [np.linalg.norm(ephem[0][1]) - 6378.137 for ephem in const_ephemerides]
 
-    # Normalize altitudes for colormap
-    min_alt_all = np.min(alts_all)
-    max_alt_all = np.max(alts_all)
+    print(f"first alts_all: {alts_all[:5]}")
+    min_alt_all, max_alt_all = np.min(alts_all), np.max(alts_all)
+
     norm_alts_all = (alts_all - min_alt_all) / (max_alt_all - min_alt_all)
 
     # Setup colorbar
     cb_ax = fig.add_axes([0.85, 0.3, 0.03, 0.4])
-    sm = plt.cm.ScalarMappable(cmap=cm.jet, norm=plt.Normalize(vmin=min_alt_all, vmax=max_alt_all))
-    sm._A = []  # Needed for ScalarMappable
+    sm = plt.cm.ScalarMappable(cmap=plt.cm.jet, norm=plt.Normalize(vmin=min_alt_all, vmax=max_alt_all))
+    sm._A = []
     cbar = fig.colorbar(sm, cax=cb_ax)
     cbar.set_label('Altitude (km)', fontsize=12, color='black', labelpad=5)
     cbar.ax.tick_params(labelsize=9, color='black')
 
     # Set the title
-    fig.suptitle('Orbital Configuration:' +const +'\n Date:' + str(time.strftime("%d/%m/%y")) + ', ' + str(len(const_ephemerides))+' satellites', fontsize=16, y=0.95, x=0.5, color='black')
+    fig.suptitle(f'Orbital Configuration: {const}\n Date: {time.strftime("%d/%m/%y")}, {len(const_ephemerides)} satellites', fontsize=16, y=0.95, x=0.5, color='black')
 
-    # Define the animation update function
     def update(az):
         ax.cla()
         ax.view_init(30, az)
         plot_satellite_data(ax, const_ephemerides, norm_alts_all)
         return ax
 
-    # Generate the animation
-    ani = FuncAnimation(fig, update, frames=np.arange(0, 360, 5), blit=False)
+    print(f"title set to {const}...")
 
-    # Save the animation as a GIF
+    # Save frames and create GIF
     gif_folder = os.path.join('images/constellation_anim/gifs/', const)
     os.makedirs(gif_folder, exist_ok=True)
-    ani.save(os.path.join(gif_folder, f'geom_{const}_{time.strftime("%y_%m_%d")}.gif'), writer='imagemagick', fps=10)
+    frame_files = []
+    for az in range(0, 360, 5):
+        update(az)
+        frame_path = os.path.join(gif_folder, f'frame_{az}.png')
+        plt.savefig(frame_path)
+        frame_files.append(frame_path)
+    plt.close()
+
+    # Compile frames into GIF
+    images = [Image.open(frame) for frame in frame_files]
+    gif_path = os.path.join(gif_folder, f'geom_{const}_{time.strftime("%y_%m_%d")}.gif')
+    images[0].save(gif_path, save_all=True, append_images=images[1:], duration=100, loop=0)
+
+    # Cleanup frame files
+    for frame in frame_files:
+        os.remove(frame)
 
     print(f"Finished creating .gif file for {const}")
 
@@ -393,6 +472,7 @@ if __name__ == "__main__":
     #     constellation = 'spire'
 
     # generate_state_gif('swarm')
-    constellations = ['oneweb', 'starlink', 'planet', 'swarm', 'spire', 'iridium']
+    # constellations = ['oneweb', 'starlink', 'planet', 'swarm', 'spire', 'iridium']
+    constellations = ['oneweb', 'starlink']
     for constell in constellations:
         generate_geom_gif(constell)
